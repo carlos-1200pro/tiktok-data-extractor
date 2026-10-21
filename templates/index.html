@@ -1,0 +1,331 @@
+<!DOCTYPE html>
+<html lang="es" class="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>TikTok Data Extractor</title>
+  <!-- Tailwind CSS por CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="min-h-screen bg-slate-950 text-slate-200">
+
+  <main class="mx-auto max-w-6xl px-4 py-10">
+
+    <!-- ENCABEZADO -->
+    <header class="mb-8 text-center">
+      <h1 class="text-3xl font-bold tracking-tight text-white sm:text-4xl">
+        TikTok <span class="text-pink-500">Data</span>
+        <span class="text-cyan-400">Extractor</span>
+      </h1>
+      <p class="mt-2 text-sm text-slate-400">
+        Métricas y comentarios de perfiles públicos · Proyecto académico
+      </p>
+    </header>
+
+    <!-- FORMULARIO -->
+    <section class="rounded-2xl border border-slate-800 bg-slate-900/70 p-6 shadow-xl">
+      <form id="formulario" class="flex flex-col gap-3 sm:flex-row">
+        <div class="relative flex-1">
+          <span class="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-slate-500">@</span>
+          <input id="username" type="text" autocomplete="off"
+                 placeholder="nombre_de_usuario (sin @)"
+                 class="w-full rounded-xl border border-slate-700 bg-slate-950 py-3 pl-9 pr-4
+                        text-white placeholder-slate-600 outline-none transition
+                        focus:border-cyan-400 focus:ring-2 focus:ring-cyan-400/30" />
+        </div>
+        <button id="btnExtraer" type="submit"
+                class="flex min-w-[170px] items-center justify-center gap-2 rounded-xl
+                       bg-gradient-to-r from-pink-500 to-cyan-500 px-6 py-3 font-semibold
+                       text-white transition hover:opacity-90
+                       disabled:cursor-not-allowed disabled:opacity-50">
+          <svg id="spinner" class="hidden h-5 w-5 animate-spin" viewBox="0 0 24 24" fill="none">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path>
+          </svg>
+          <span id="textoBoton">Extraer Datos</span>
+        </button>
+      </form>
+
+      <!-- Mensaje de error -->
+      <div id="cajaError" class="mt-4 hidden rounded-xl border border-red-500/40 bg-red-500/10 px-4 py-3 text-sm text-red-300"></div>
+    </section>
+
+    <!-- LOGS -->
+    <section class="mt-6 rounded-2xl border border-slate-800 bg-black/60 p-4">
+      <h2 class="mb-2 text-xs font-semibold uppercase tracking-widest text-slate-500">
+        Registro de actividad
+      </h2>
+      <pre id="logs" class="h-40 overflow-y-auto whitespace-pre-wrap font-mono text-xs leading-relaxed text-emerald-400">Esperando instrucciones...</pre>
+    </section>
+
+    <!-- RESULTADOS -->
+    <section id="resultados" class="mt-8 hidden">
+
+      <!-- Tarjetas de perfil -->
+      <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <div class="rounded-2xl border border-slate-800 bg-slate-900/70 p-5 lg:col-span-2">
+          <p class="text-xs uppercase tracking-widest text-slate-500">Perfil</p>
+          <p id="pNickname" class="mt-1 text-xl font-bold text-white"></p>
+          <p id="pUsername" class="text-sm text-cyan-400"></p>
+          <p id="pBio" class="mt-2 text-sm text-slate-400"></p>
+        </div>
+        <div class="rounded-2xl border border-slate-800 bg-slate-900/70 p-5">
+          <p class="text-xs uppercase tracking-widest text-slate-500">Seguidores</p>
+          <p id="pSeguidores" class="mt-2 text-3xl font-bold text-pink-400"></p>
+        </div>
+        <div class="rounded-2xl border border-slate-800 bg-slate-900/70 p-5">
+          <p class="text-xs uppercase tracking-widest text-slate-500">Seguidos</p>
+          <p id="pSiguiendo" class="mt-2 text-3xl font-bold text-cyan-400"></p>
+        </div>
+      </div>
+
+      <!-- Listas de seguidores y seguidos -->
+      <div class="mt-6 grid gap-4 md:grid-cols-2">
+        <div class="rounded-2xl border border-slate-800 bg-slate-900/70 p-5">
+          <h3 class="text-sm font-semibold text-white">
+            Seguidores <span id="contSeguidores" class="font-normal text-slate-500"></span>
+          </h3>
+          <ul id="listaSeguidores" class="mt-3 max-h-64 space-y-1 overflow-y-auto text-sm"></ul>
+        </div>
+        <div class="rounded-2xl border border-slate-800 bg-slate-900/70 p-5">
+          <h3 class="text-sm font-semibold text-white">
+            Seguidos <span id="contSiguiendo" class="font-normal text-slate-500"></span>
+          </h3>
+          <ul id="listaSiguiendo" class="mt-3 max-h-64 space-y-1 overflow-y-auto text-sm"></ul>
+        </div>
+      </div>
+
+      <!-- Encabezado de tabla + botón CSV -->
+      <div class="mt-8 flex flex-wrap items-center justify-between gap-3">
+        <h2 class="text-lg font-semibold text-white">Últimos videos</h2>
+                <div class="flex gap-2">
+          <button id="btnCsv" disabled
+                  class="rounded-xl border border-emerald-500/50 bg-emerald-500/10 px-5 py-2
+                         text-sm font-semibold text-emerald-300 transition hover:bg-emerald-500/20
+                         disabled:cursor-not-allowed disabled:opacity-40">
+            Descargar Reporte CSV
+          </button>
+          <button id="btnJson" disabled
+                  class="rounded-xl border border-cyan-500/50 bg-cyan-500/10 px-5 py-2
+                         text-sm font-semibold text-cyan-300 transition hover:bg-cyan-500/20
+                         disabled:cursor-not-allowed disabled:opacity-40">
+            Descargar JSON
+          </button>
+        </div>
+      </div>
+
+      <!-- Tabla dinámica -->
+      <div class="mt-3 overflow-x-auto rounded-2xl border border-slate-800 bg-slate-900/70">
+        <table class="w-full min-w-[800px] text-left text-sm">
+          <thead class="bg-slate-800/60 text-xs uppercase tracking-wider text-slate-400">
+            <tr>
+              <th class="px-4 py-3">#</th>
+              <th class="px-4 py-3">Video</th>
+              <th class="px-4 py-3 text-right">Likes</th>
+              <th class="px-4 py-3 text-right">Vistas</th>
+              <th class="px-4 py-3 text-right">Comentarios</th>
+              <th class="px-4 py-3">Primeros comentarios</th>
+            </tr>
+          </thead>
+          <tbody id="tablaVideos" class="divide-y divide-slate-800"></tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    // =====================================================================
+    // Lógica del frontend (JavaScript ES6+) - comunicación con Flask (fetch)
+    // =====================================================================
+    const INTERVALO_MS = 1500;
+    let temporizador = null;
+
+    // Referencias a elementos del DOM
+    const $ = (id) => document.getElementById(id);
+    const formulario = $("formulario");
+    const inputUser = $("username");
+    const btnExtraer = $("btnExtraer");
+    const btnCsv = $("btnCsv");
+    const btnJson = $("btnJson");
+
+    // Formatea números: 12500 -> "12.500"
+    const fmt = (n) => Number(n ?? 0).toLocaleString("es-EC");
+
+    // Activa/desactiva el estado visual de "Cargando..."
+    function setCargando(activo) {
+      btnExtraer.disabled = activo;
+      inputUser.disabled = activo;
+      $("spinner").classList.toggle("hidden", !activo);
+      $("textoBoton").textContent = activo ? "Cargando..." : "Extraer Datos";
+    }
+
+    function mostrarError(mensaje) {
+      const caja = $("cajaError");
+      caja.textContent = mensaje || "";
+      caja.classList.toggle("hidden", !mensaje);
+    }
+
+    function pintarLogs(logs) {
+      const caja = $("logs");
+      caja.textContent = logs.length ? logs.map((l) => "> " + l).join("\n")
+                                     : "Esperando instrucciones...";
+      caja.scrollTop = caja.scrollHeight; // baja al último mensaje
+    }
+
+    // Crea una celda de tabla usando textContent (evita inyección de HTML
+    // proveniente de comentarios de TikTok).
+    function crearCelda(texto, clases = "") {
+      const td = document.createElement("td");
+      td.className = "px-4 py-3 " + clases;
+      td.textContent = texto;
+      return td;
+    }
+
+    // Dibuja una lista de cuentas (seguidores o seguidos)
+    function pintarLista(idLista, idContador, usuarios = []) {
+      const lista = $(idLista);
+      lista.replaceChildren();
+      $(idContador).textContent = "(" + usuarios.length + " mostrados)";
+
+      if (!usuarios.length) {
+        const vacio = document.createElement("li");
+        vacio.className = "text-slate-500";
+        vacio.textContent = "— lista no disponible (privada o sin sesión) —";
+        lista.appendChild(vacio);
+        return;
+      }
+
+      usuarios.forEach((u) => {
+        const item = document.createElement("li");
+        item.className = "flex justify-between gap-3 rounded-lg px-2 py-1 hover:bg-slate-800/50";
+
+        const enlace = document.createElement("a");
+        enlace.href = "https://www.tiktok.com/@" + u.username;
+        enlace.target = "_blank";
+        enlace.rel = "noopener noreferrer";
+        enlace.className = "text-cyan-400 hover:underline";
+        enlace.textContent = "@" + u.username;
+
+        const nombre = document.createElement("span");
+        nombre.className = "truncate text-slate-400";
+        nombre.textContent = u.nickname || "";
+
+        item.append(enlace, nombre);
+        lista.appendChild(item);
+      });
+    }
+
+    function pintarResultados(perfil, videos) {
+      $("pNickname").textContent = perfil.nickname || "(sin nickname)";
+      $("pUsername").textContent = "@" + perfil.username;
+      $("pBio").textContent = perfil.biografia || "Sin biografía";
+      $("pSeguidores").textContent = fmt(perfil.seguidores);
+      $("pSiguiendo").textContent = fmt(perfil.siguiendo);
+
+      const cuerpo = $("tablaVideos");
+      cuerpo.replaceChildren();
+      videos.forEach((v, i) => {
+        const fila = document.createElement("tr");
+        fila.className = "hover:bg-slate-800/40";
+
+        const celdaLink = document.createElement("td");
+        celdaLink.className = "px-4 py-3";
+        const enlace = document.createElement("a");
+        enlace.href = v.url;
+        enlace.target = "_blank";
+        enlace.rel = "noopener noreferrer";
+        enlace.className = "text-cyan-400 hover:underline";
+        enlace.textContent = "Ver video";
+        celdaLink.appendChild(enlace);
+
+        fila.append(
+          crearCelda(i + 1, "text-slate-500"),
+          celdaLink,
+          crearCelda(fmt(v.likes), "text-right"),
+          crearCelda(fmt(v.vistas), "text-right"),
+          crearCelda(fmt(v.comentarios_total), "text-right"),
+          crearCelda(v.comentarios.length ? v.comentarios.join(" | ")
+                                          : "— sin comentarios —",
+                     "max-w-md text-xs text-slate-400")
+        );
+        cuerpo.appendChild(fila);
+      });
+
+      // Listas de cuentas
+      pintarLista("listaSeguidores", "contSeguidores", perfil.lista_seguidores);
+      pintarLista("listaSiguiendo", "contSiguiendo", perfil.lista_siguiendo);
+
+      $("resultados").classList.remove("hidden");
+    }
+
+    // Consulta el estado del backend (polling)
+    async function consultarEstado() {
+      try {
+        const respuesta = await fetch("/api/estado");
+        const datos = await respuesta.json();
+        pintarLogs(datos.logs);
+
+        if (datos.estado === "completado") {
+          clearInterval(temporizador);
+          setCargando(false);
+          pintarResultados(datos.perfil, datos.videos);
+          btnCsv.disabled = false;
+          btnJson.disabled = false;
+        } else if (datos.estado === "error") {
+          clearInterval(temporizador);
+          setCargando(false);
+          mostrarError(datos.error);
+        }
+      } catch (error) {
+        clearInterval(temporizador);
+        setCargando(false);
+        mostrarError("No se pudo conectar con el servidor Flask.");
+      }
+    }
+
+    // Envío del formulario: inicia la extracción
+    formulario.addEventListener("submit", async (evento) => {
+      evento.preventDefault();
+      mostrarError("");
+      btnCsv.disabled = true;
+      btnJson.disabled = true;
+      $("resultados").classList.add("hidden");
+
+      const username = inputUser.value.trim().replace(/^@/, "");
+      if (!username) {
+        mostrarError("Ingresa un nombre de usuario.");
+        return;
+      }
+
+      setCargando(true);
+      try {
+        const respuesta = await fetch("/api/extraer", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ username }),
+        });
+        const datos = await respuesta.json();
+        if (!respuesta.ok) {
+          setCargando(false);
+          mostrarError(datos.error || "No se pudo iniciar la extracción.");
+          return;
+        }
+        temporizador = setInterval(consultarEstado, INTERVALO_MS);
+      } catch (error) {
+        setCargando(false);
+        mostrarError("No se pudo conectar con el servidor Flask.");
+      }
+    });
+
+    // Botón de descarga del CSV
+    btnCsv.addEventListener("click", () => {
+      window.location.href = "/api/descargar";
+    });
+
+        // Botón de descarga del JSON
+    btnJson.addEventListener("click", () => {
+      window.location.href = "/api/descargar_json";
+    });
+  </script>
+</body>
+</html>

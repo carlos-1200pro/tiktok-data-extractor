@@ -1,0 +1,18 @@
+# Entorno virtual (se recrea con requirements.txt)
+venv/
+.venv/
+
+# Python
+__pycache__/
+*.pyc
+
+# Sesión del navegador (contiene tus cookies de TikTok)
+chrome_profile/
+
+# Reportes generados (datos de terceros)
+output/
+
+# Editor y sistema
+.vscode/
+.env
+.DS_Store
