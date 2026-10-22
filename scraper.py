@@ -116,6 +116,7 @@ class VideoTikTok:
     vistas: int = 0
     comentarios_total: int = 0
     comentarios: list[str] = field(default_factory=list)
+    descripcion: str = ""
 
 
 def _a_entero(valor: Any) -> int:
@@ -297,6 +298,7 @@ class TikTokScraper:
             videos.append(VideoTikTok(
                 video_id=video_id,
                 url=f"https://www.tiktok.com/@{username}/video/{video_id}",
+                descripcion=str(item.get("desc") or "").strip(),
                 likes=_a_entero(est.get("diggCount")),
                 vistas=_a_entero(est.get("playCount")),
                 comentarios_total=_a_entero(est.get("commentCount")),
@@ -402,15 +404,19 @@ class TikTokScraper:
 
         # Si las estadísticas vinieron vacías, las leemos del JSON del video.
         datos = await self._leer_json_hidratacion(page, espera_max=15)
-        if datos and video.vistas == 0:
-            est = (datos.get("__DEFAULT_SCOPE__", {})
-                   .get("webapp.video-detail", {})
-                   .get("itemInfo", {})
-                   .get("itemStruct", {})
-                   .get("stats", {}))
-            video.likes = _a_entero(est.get("diggCount"))
-            video.vistas = _a_entero(est.get("playCount"))
-            video.comentarios_total = _a_entero(est.get("commentCount"))
+        if datos:
+            item = (datos.get("__DEFAULT_SCOPE__", {})
+                    .get("webapp.video-detail", {})
+                    .get("itemInfo", {})
+                    .get("itemStruct", {}))
+            video.descripcion = (
+                video.descripcion or str(item.get("desc") or "").strip()
+            )
+            if video.vistas == 0:
+                est = item.get("stats", {})
+                video.likes = _a_entero(est.get("diggCount"))
+                video.vistas = _a_entero(est.get("playCount"))
+                video.comentarios_total = _a_entero(est.get("commentCount"))
 
         if video.comentarios_total == 0:
             self._log("    sin comentarios, se omite.")

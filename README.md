@@ -22,6 +22,8 @@ Además, la interfaz incluye:
 - Botón "Extraer Datos" con spinner animado y bloqueo mientras se procesa.
 - Registro de actividad en tiempo real.
 - Tarjetas de perfil, listas de seguidores y seguidos, y tabla de videos.
+- Estimación orientativa Big Five basada únicamente en la biografía y las
+  descripciones de publicaciones del perfil; no utiliza comentarios de terceros.
 - Descarga del reporte en **CSV** y en **JSON**.
 
 ## Tecnologías
@@ -39,6 +41,7 @@ Restricciones del proyecto: sin Selenium, sin librerías específicas de TikTok 
 tiktok_scraper/
 ├── app.py              # Servidor Flask y endpoints de la API REST
 ├── scraper.py          # Clase TikTokScraper (Playwright + BeautifulSoup)
+├── bigfive.py          # Análisis léxico orientativo de los cinco rasgos OCEAN
 ├── templates/
 │   └── index.html      # Interfaz (HTML + Tailwind + JavaScript)
 ├── requirements.txt    # Dependencias
@@ -97,8 +100,8 @@ Las opciones están al inicio de `scraper.py`:
 
 ## Formato de los reportes
 
-- **CSV** (`reporte_tiktok_[usuario].csv`): bloques de resumen del perfil, lista de seguidores, lista de seguidos y matriz de videos (ID, URL, Likes, Vistas, Comentarios Totales y comentarios separados por `|`).
-- **JSON** (`reporte_tiktok_[usuario].json`): la misma información en formato estructurado.
+- **CSV** (`reporte_tiktok_[usuario].csv`): resumen del perfil, listas de seguidores y seguidos, videos, comentarios y estimación Big Five.
+- **JSON** (`reporte_tiktok_[usuario].json`): la misma información en formato estructurado, con el análisis bajo `analisis_bigfive`.
 
 ## API REST
 
@@ -106,7 +109,7 @@ Las opciones están al inicio de `scraper.py`:
 |--------|------|-------------|
 | GET | `/` | Interfaz gráfica |
 | POST | `/api/extraer` | Inicia la extracción (`{"username": "..."}`) |
-| GET | `/api/estado` | Estado, registro de actividad y resultados |
+| GET | `/api/estado` | Estado, registro de actividad, resultados y análisis Big Five (`analisis_bigfive`) |
 | GET | `/api/descargar` | Descarga el CSV |
 | GET | `/api/descargar_json` | Descarga el JSON |
 
@@ -114,6 +117,7 @@ Las opciones están al inicio de `scraper.py`:
 
 - TikTok aplica medidas anti-bot. Pueden aparecer captchas o errores HTTP 403; en ese caso conviene esperar un rato, iniciar sesión en la ventana del navegador y reintentar.
 - Los comentarios y las listas de seguidores dependen de cómo TikTok cargue la página y pueden salir incompletos o vacíos.
+- Big Five es una estimación léxica experimental, no una prueba psicológica ni un diagnóstico. Si el perfil no tiene suficiente texto en español, la confianza será insuficiente o baja.
 - Los nombres internos de los datos de TikTok cambian con el tiempo, por lo que los selectores pueden requerir ajustes.
 
 ## Aviso de uso responsable
@@ -122,4 +126,4 @@ Este proyecto tiene fines **exclusivamente educativos**. Úsalo solo con perfile
 
 ## Autor
 
-**[Tu nombre]** — [Materia / Universidad] — [Año o ciclo]
+**Carlos Patiño** — [Dispocitivos Moviles/ Universidad Central del Ecuador] — [2026-2027]

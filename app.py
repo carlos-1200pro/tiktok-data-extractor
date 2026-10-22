@@ -26,6 +26,8 @@ from flask import Flask, Response, jsonify, render_template, request, send_file
 
 from scraper import PerfilTikTok, ScraperError, TikTokScraper, VideoTikTok
 
+from bigfive import ResultadoBigFive, analizar_bigfive
+
 # ---------------------------------------------------------------------------
 # CONFIGURACIÓN Y ESTADO COMPARTIDO
 # ---------------------------------------------------------------------------
@@ -46,6 +48,7 @@ _estado: dict[str, Any] = {
     "error": None,
     "perfil": None,
     "videos": [],
+    "analisis_bigfive": None,
     "archivo_csv": None,
     "archivo_json": None,
 }
@@ -60,6 +63,7 @@ def _reiniciar_estado() -> None:
             error=None,
             perfil=None,
             videos=[],
+            analisis_bigfive=None,
             archivo_csv=None,
             archivo_json=None,
         )
@@ -76,13 +80,18 @@ def _agregar_log(mensaje: str) -> None:
 # ---------------------------------------------------------------------------
 
 
-def exportar_csv(perfil: PerfilTikTok, videos: list[VideoTikTok]) -> Path:
+def exportar_csv(
+    perfil: PerfilTikTok,
+    videos: list[VideoTikTok],
+    analisis_bigfive: Optional[ResultadoBigFive] = None,
+) -> Path:
     """
-    Genera 'reporte_tiktok_[username].csv' con cuatro bloques:
+    Genera 'reporte_tiktok_[username].csv' con cinco bloques:
       1) Resumen del perfil
       2) Lista de seguidores (muestra)
       3) Lista de seguidos (muestra)
       4) Matriz detallada de videos
+      5) Estimación orientativa Big Five
     Usa utf-8-sig para que Excel muestre bien tildes y emojis.
     """
     CARPETA_SALIDA.mkdir(parents=True, exist_ok=True)
@@ -117,7 +126,7 @@ def exportar_csv(perfil: PerfilTikTok, videos: list[VideoTikTok]) -> Path:
         escritor.writerow(["DETALLE DE VIDEOS"])
         escritor.writerow(
             ["ID", "URL", "Likes", "Vistas", "Comentarios Totales",
-             "Comentarios"]
+             "Descripción", "Comentarios"]
         )
         for video in videos:
             escritor.writerow([
@@ -126,8 +135,29 @@ def exportar_csv(perfil: PerfilTikTok, videos: list[VideoTikTok]) -> Path:
                 video.likes,
                 video.vistas,
                 video.comentarios_total,
+                video.descripcion,
                 SEPARADOR_COMENTARIOS.join(video.comentarios),
             ])
+
+        if analisis_bigfive is not None:
+            escritor.writerow([])
+            escritor.writerow(["ANÁLISIS BIG FIVE (estimación orientativa)"])
+            escritor.writerow(["Aviso", analisis_bigfive.aviso])
+            escritor.writerow(["Palabras analizadas",
+                               analisis_bigfive.palabras_analizadas])
+            escritor.writerow(["Coincidencias",
+                               analisis_bigfive.coincidencias])
+            escritor.writerow(["Confianza", analisis_bigfive.confianza])
+            escritor.writerow(["Rasgo", "Puntaje", "Nivel", "Descripción",
+                               "Palabras detectadas"])
+            for rasgo in analisis_bigfive.rasgos:
+                escritor.writerow([
+                    rasgo.nombre,
+                    rasgo.puntaje,
+                    rasgo.nivel,
+                    rasgo.descripcion,
+                    SEPARADOR_COMENTARIOS.join(rasgo.evidencia),
+                ])
     return ruta
 
 # ---------------------------------------------------------------------------
@@ -135,14 +165,21 @@ def exportar_csv(perfil: PerfilTikTok, videos: list[VideoTikTok]) -> Path:
 # ---------------------------------------------------------------------------
 
 
-def exportar_json(perfil: PerfilTikTok, videos: list[VideoTikTok]) -> Path:
-    """Genera 'reporte_tiktok_[username].json' con perfil y videos."""
+def exportar_json(
+    perfil: PerfilTikTok,
+    videos: list[VideoTikTok],
+    analisis_bigfive: Optional[ResultadoBigFive] = None,
+) -> Path:
+    """Genera el reporte JSON con perfil, videos y análisis Big Five."""
     CARPETA_SALIDA.mkdir(parents=True, exist_ok=True)
     nombre_seguro = re.sub(r"[^A-Za-z0-9._-]", "_", perfil.username)
     ruta = CARPETA_SALIDA / f"reporte_tiktok_{nombre_seguro}.json"
     datos = {
         "perfil": asdict(perfil),
         "videos": [asdict(video) for video in videos],
+        "analisis_bigfive": (
+            asdict(analisis_bigfive) if analisis_bigfive is not None else None
+        ),
     }
     with open(ruta, "w", encoding="utf-8") as archivo:
         # ensure_ascii=False conserva tildes y emojis; indent=4 lo ordena.
@@ -160,21 +197,28 @@ def _tarea_extraccion(username: str) -> None:
         scraper = TikTokScraper(log=_agregar_log)
         # asyncio.run crea un bucle de eventos propio para este hilo.
         perfil, videos = asyncio.run(scraper.extraer(username))
-        ruta = exportar_csv(perfil, videos)
-        ruta_json = exportar_json(perfil, videos)
+        textos = [perfil.biografia, *(video.descripcion for video in videos)]
+        analisis_bigfive = analizar_bigfive(textos)
+        _agregar_log(
+            "Análisis Big Five generado con la biografía y las descripciones "
+            f"de {len(videos)} publicaciones."
+        )
+        ruta = exportar_csv(perfil, videos, analisis_bigfive)
+        ruta_json = exportar_json(perfil, videos, analisis_bigfive)
         _agregar_log(f"Archivos generados: {ruta.name} y {ruta_json.name}")
         with _candado:
             _estado.update(
                 estado="completado",
                 perfil=asdict(perfil),
                 videos=[asdict(v) for v in videos],
+                analisis_bigfive=asdict(analisis_bigfive),
                 archivo_csv=str(ruta),
                 archivo_json=str(ruta_json),
             )
     except ScraperError as error:
         _registrar_error(str(error))
     except OSError as error:
-        _registrar_error(f"No se pudo escribir el archivo CSV: {error}")
+        _registrar_error(f"No se pudieron escribir los reportes: {error}")
     except Exception as error:  # último recurso: que el hilo no muera mudo
         _registrar_error(f"Error inesperado: {error}")
 
